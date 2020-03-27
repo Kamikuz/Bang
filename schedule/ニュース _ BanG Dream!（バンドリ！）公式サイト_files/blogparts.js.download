@@ -1,0 +1,222 @@
+var BlogParts = (function(){
+
+  var $modalWindow = $(".js-blogparts-modal");
+  var $iframe = $modalWindow.find(".js-blogpartsFrame");
+
+  $iframe.on("load", function(){
+    $(this).contents()
+        .find(".js-add-parts").on("click", BlogParts.addParts)
+        .find("a").on("click", function(e){
+      // ブログパーツモーダル内のaタグクリックは無効にしておく
+      e.preventDefault();
+    });
+  });
+
+  $modalWindow.find(".modal-header a").on("click", function(e){
+    e.preventDefault();
+    var target = $(e.target).attr("href");
+    $modalWindow.scrollTop( $iframe.contents().find(target).offset().top );
+  });
+
+  return {
+    blogpartsClass: "blogparts_element",
+    newLineClass: "newline",
+    isLastClass: "ignore",
+    openModal: function(evt){
+
+      evt.preventDefault();
+
+      $modalWindow
+          .on('show.bs.modal', function(){
+            $modalWindow.css("opacity", 0);
+          })
+          .on('shown.bs.modal', function () {
+
+            var iframeHeight = $iframe.get(0).contentWindow.document.documentElement.scrollHeight;
+            $iframe.height(iframeHeight);
+
+            var modalHeight = $modalWindow.find(".modal-header").outerHeight() + $modalWindow.find(".modal-footer").outerHeight() + $modalWindow.find(".modal-body").outerHeight();
+            $('.modal-content').css('height', modalHeight);
+            $modalWindow.css("opacity", 1);
+
+          });
+
+      $modalWindow.modal();
+      $modalWindow.scrollTop(0);
+    },
+    renderGmap: function() {
+      tinymce.dom.DomQuery.each(tinymce.activeEditor.dom.select(".js-gmap-address"), function () {
+        GMAP.render($(this));
+      });
+    },
+    productImage: function(elm){
+      var $imageWrapLink = $(elm).closest(".product-img-wrapper").find("a");
+      if( !$imageWrapLink.length || !($(elm).closest(".product-img-wrapper")).length || $(elm).hasClass(".product-img-wrapper") ){
+        return false;
+      };
+      if($(elm).hasClass("soldOut")){
+        $imageWrapLink.addClass("soldOut");
+      } else {
+        $imageWrapLink.removeClass("soldOut");
+      }
+      
+    },
+    addParts: function(evt){
+      $(evt.currentTarget).find(".js-dummyParts").remove();
+      var parts_html = $(evt.currentTarget).html();
+
+      tinymce.activeEditor.execCommand("mceInsertContent", false, parts_html);
+
+      parts_html = tinymce.activeEditor.dom.get(parts_html);
+      if ( !tinymce.activeEditor.dom.getNext(parts_html, "*") ){
+        BlogParts.appendNewParagraph(null, BlogParts.isLastClass);
+      }
+      $modalWindow.modal('hide');
+    },
+    addBlogpartsClass: function(){
+
+      tinymce.activeEditor.dom.addClass(tinymce.activeEditor.dom.select("p"), BlogParts.blogpartsClass);
+      tinymce.activeEditor.dom.addClass(tinymce.activeEditor.dom.select("ul, ol"), BlogParts.blogpartsClass);
+      tinymce.activeEditor.dom.addClass(tinymce.activeEditor.dom.select("table"), BlogParts.blogpartsClass);
+      tinymce.activeEditor.dom.addClass(tinymce.activeEditor.dom.select("strong, em"), BlogParts.blogpartsClass);
+
+      tinymce.activeEditor.dom.removeClass(tinymce.activeEditor.dom.select("ul."+BlogParts.blogpartsClass+" > li, ol."+BlogParts.blogpartsClass+" > li"), BlogParts.blogpartsClass);
+
+    },
+    formatLines: function(){
+
+      tinymce.activeEditor.dom.removeClass( tinymce.activeEditor.dom.select("p"), BlogParts.newLineClass);
+
+      var paragraphs = tinymce.activeEditor.dom.select("p");
+      $(paragraphs).each(function(){
+
+        var paragraph = tinymce.activeEditor.dom.get(this);
+        var isLast = !tinymce.activeEditor.dom.getNext(paragraph, "*");
+
+        // <br>だけ入っていて、テキスト要素がない
+        var isEmpty = $(this).children("br").length > 0;
+        if (isEmpty) {
+          isEmpty = $(this).contents().filter(function(){
+                return this.nodeType == 3;
+              }).length < 1;
+        }
+
+        if ( isLast && isEmpty ){
+          tinymce.activeEditor.dom.addClass( paragraph, BlogParts.isLastClass);
+        } else {
+          tinymce.activeEditor.dom.removeClass( paragraph, BlogParts.isLastClass);
+        }
+        if ( isEmpty ){
+          tinymce.activeEditor.dom.addClass( tinymce.activeEditor.dom.get(this), BlogParts.newLineClass);
+        }
+      });
+    },
+    appendNewParagraph: function(e, additionalClassName){
+
+      var rootClass = "blogparts_root";
+      var cursorClass = "cursorHere";
+      additionalClassName = additionalClassName || '';
+
+      var newParagraph = tinymce.activeEditor.dom.create('p', {'class': cursorClass + " " + additionalClassName}, "<br>");
+      var currentElement = tinymce.activeEditor.selection.getNode();
+      var parents = tinymce.activeEditor.dom.getParents(currentElement);
+
+      for (var i = 0, len = parents.length; i < len; i++) {
+
+        var $el = tinymce.activeEditor.dom.get(parents[i]);
+
+        if ( tinymce.activeEditor.dom.hasClass($el, rootClass) ){
+          tinymce.activeEditor.dom.insertAfter(newParagraph, $el);
+          break;
+        }
+
+        if ( i === parents.length - 1 ){
+          $el = tinymce.activeEditor.getBody();
+          tinymce.activeEditor.dom.add($el, newParagraph);
+        }
+      }
+
+      newParagraph = tinymce.activeEditor.dom.select('p.'+cursorClass, false)[0];
+      tinymce.activeEditor.selection.setCursorLocation(newParagraph);
+      tinymce.activeEditor.dom.removeClass(tinymce.activeEditor.dom.select('p.'+cursorClass), cursorClass);
+
+      BlogParts.formatLines();
+    },
+    recalculateTableWidth: function(){
+
+      var calculateResponsiveWidth = function( $element, parentWidth ){
+        var width = tinymce.activeEditor.dom.getSize( $element ).w;
+        return {
+          px: width,
+          percent:  ( width > parentWidth ) ? 100 : width / parentWidth * 100
+        };
+      };
+
+      var tables = tinymce.activeEditor.dom.select("table");
+      $(tables).each(function(){
+
+        var $table = tinymce.activeEditor.dom.get(this);
+
+        // getParents(...)[0]が自分、[1]が一つ上階層の要素
+        var parentWidth = $( tinymce.activeEditor.dom.getParents($table)[1]).width();
+        var tableWidth = calculateResponsiveWidth($table, parentWidth);
+
+        var cellsInFirstRow = tinymce.activeEditor.dom.select("tr:first-child > th, td", $table);
+        $(cellsInFirstRow).each(function(){
+          var $cell = tinymce.activeEditor.dom.get(this);
+          var cellWidth = calculateResponsiveWidth($cell, tableWidth.px);
+          tinymce.activeEditor.dom.setStyles( $cell , {'width': cellWidth.percent +'%', 'maxWidth': '100%'});
+        });
+
+        tinymce.activeEditor.dom.setStyles( $table , {'width': tableWidth.percent +'%', 'maxWidth': '100%'});
+      });
+    },
+    resizeTitleHeight: function( context ){
+      $("."+ BlogParts.blogpartsClass +".businessInfo.level-1", context).children(".col").children("h2").matchHeight();
+      $("."+ BlogParts.blogpartsClass +".businessInfo.level-3 > ul", context).children("li").find("h4, h6").matchHeight();
+    },
+    getCodeDialogMaxWidth: function(){
+      var MIN = Math.min(window.innerWidth - 100, 800); // 800: codemirrorのdefault
+      return  Math.max(MIN, window.innerWidth * 0.8);
+    },
+    getCodeDialogMaxHeight: function(){
+      var MIN = Math.min(window.innerHeight - 200, 550); // 550: codemirrorのdefault
+      return  Math.max(MIN,  window.innerHeight * 0.8);
+    },
+    getCursorableElement: function (firstElement) {
+
+      var $ = tinymce.dom.DomQuery;
+      var isInvalid = function (el) {
+        return ['style'].indexOf(el.nodeName.toLowerCase()) > -1;
+      }
+
+      var element = firstElement;
+      while (element) {
+
+        if (isInvalid(element)) {
+          element = element.nextSibling;
+          continue;
+        }
+        for (var i = 0; i < $(element).children().length; i++) {
+          if (isInvalid($(element).children()[i])) {
+            element = element.nextSibling;
+            continue;
+          }
+        }
+        break;
+      }
+      return element;
+    },
+    cursorToValidElement: function (editor) {
+      var element = BlogParts.getCursorableElement($(editor.getBody()).children().first()[0]);
+      if (element) {
+        editor.selection.select(element, true);
+      } else {
+        BlogParts.appendNewParagraph(null, '');
+        editor.selection.select(editor.getBody(), true);
+      }
+      editor.selection.collapse(false);
+    },
+  };
+
+}());

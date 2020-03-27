@@ -1,0 +1,514 @@
+$(function (){
+
+  var Page = (function(){
+
+    var scrolled = 0;
+    var mediaQueries = {
+      sp: "(max-width: 768px)",
+      tab: "(max-width: 1279px)"
+    };
+
+    var $contents = $(".js-pageWrap");
+    return {
+      isSp: function(){
+        return window.matchMedia( mediaQueries.sp ).matches;
+      },
+      isTab: function(){
+        return window.matchMedia( mediaQueries.tab ).matches;
+      },
+      saveScrollPosition: function(){
+        scrolled = $(window).scrollTop();
+      },
+      restoreScrollPosition: function(){
+        $(window).scrollTop(scrolled);
+      },
+      setMinHeight: function( minHeight ){
+        minHeight = minHeight || 'auto';
+        $contents.css({ minHeight: minHeight });
+      }
+    };
+
+  }());
+
+  var HeaderNav = (function(){
+
+    var $header = $(".js-header");
+    var $headerMainContent = $(".js-header-main");
+    var $spHeaderNav = $(".js-spHeaderNav");
+    var $spToggleBtn = $(".js-toggleHeaderNav");
+
+    return {
+      handleMouseEnter: function(e){
+        $(e.currentTarget).closest("li").addClass("highlight");
+      },
+      handleMouseLeave: function(e){
+        $(e.currentTarget).closest("li").removeClass("highlight");
+      },
+      refreshPosition: function(){
+
+        if (!Page.isSp()){
+          return false;
+        }
+
+        var headerHeight = $headerMainContent.outerHeight();
+        $spHeaderNav.css({
+          paddingBottom: headerHeight + 50
+        });
+      },
+      toggleBtn: function(collapsed){
+        collapsed ? $spToggleBtn.removeClass("close-nav") : $spToggleBtn.addClass("close-nav");
+        Page.setMinHeight($spHeaderNav.outerHeight());
+      },
+      toggleNav: function(show){
+        show ? $spHeaderNav.removeClass("is") : $spHeaderNav.addClass("is-hidden");
+      },
+      closeWindow: function(){
+        $spHeaderNav.collapse('hide');
+      }
+    };
+  }());
+
+
+  var PageTop = (function(){
+
+    var $btn = $(".js-pageTop");
+
+    return {
+      handleScroll: function(){
+
+        if( $(window).scrollTop() > 100 ){
+          $btn.addClass("is-visible");
+        }else{
+          $btn.removeClass("is-visible");
+        }
+      }
+    };
+  }());
+
+  var MainMenu = (function(){
+
+    var $header = $(".js-header-main");
+    var $pageWrap = $(".js-pageWrap");
+
+    return {
+      handleScroll: function(){
+        if( $(window).scrollTop() > 0 ){
+          var $headerHeight = $(".headerContainerWrap").outerHeight();
+          $header.addClass("is-scrolled");
+          $pageWrap.addClass("is-scrolled");
+        } else {
+          $header.removeClass("is-scrolled");
+          $pageWrap.removeClass("is-scrolled");
+        }
+      }
+    };
+  }());
+
+  var BlogpartsSlider = (function(){
+
+    var init = function(){
+
+      var el = '.js-blogpartsSlider';
+      var slideLength = $(".swiper-slide", el).length;
+      var hasSingleSlide = slideLength === 1;
+      var startSlideNum = $(el).hasClass("startSlideRandom") ? Math.floor( Math.random() * slideLength ) : 0;
+      new Swiper( el, {
+        centeredSlides: true,
+        spaceBetween: $(el).hasClass("blogparts_element") ? 0 : 40,
+        autoplay: hasSingleSlide ? false : 5000,
+        autoplayDisableOnInteraction: false,
+        loop: !hasSingleSlide,
+        speed: 800,
+        slidesPerView: 'auto',
+        pagination: '.swiper-pagination',
+        nextButton: '.js-blogpartsSlider-swiper-button-next',
+        prevButton: '.js-blogpartsSlider-swiper-button-prev',
+        simulateTouch: false, // true指定でスワイプ機能ON
+        paginationClickable: true,
+        initialSlide: startSlideNum,
+        onInit: function(swiper){
+
+          if (!hasSingleSlide){
+            $(swiper.container).addClass("has-pagination");
+
+            if ( !Page.isTab() ){
+              $(swiper.nextButton).show();
+              $(swiper.prevButton).show();
+            }
+          }
+        },
+        onPaginationRendered: function(swiper) {
+          if (hasSingleSlide) {
+            $(swiper.bullets).hide();
+          }
+        }
+      })
+    };
+
+    return {
+      init: init
+    };
+  }());
+
+  var underKvBanners = (function(){
+
+    var instance = null;
+    var el =  '.js-underKvBanners';
+    var $el = $(el);
+    var slideLength = $(".swiper-slide", el).length;
+    var hasOneSlide = slideLength === 1;
+    var hasTwoSlides = slideLength === 2;
+
+    return {
+      init: function(){
+        if (!$el.length) {
+          return false;
+        }
+
+        instance = new Swiper(el, {
+          autoplay: 5000,
+          autoplayDisableOnInteraction:false,
+          loop: !(slideLength <= 2),
+          speed: 800,
+          pagination: '.swiper-pagination',
+          paginationClickable: true,
+          nextButton: '.js-under-kv-banners-button-next',
+          prevButton: '.js-under-kv-banners-button-prev',
+          simulateTouch: !(slideLength <= 2), // true指定でスワイプ機能ON,
+          slidesPerView: 2,
+          spaceBetween: 20,
+          breakpoints: {
+            768: {
+              loop: !hasOneSlide,
+              slidesPerView: 1
+            }
+          },
+          onInit: function(swiper) {
+            if(hasOneSlide) {
+              $(swiper.bullets).hide();
+              $(swiper.nextButton).hide();
+              $(swiper.prevButton).hide();
+              $el.find($(".swiper-wrapper")).css({justifyContent:'center'});
+            }
+            else if(hasTwoSlides) {
+              $(swiper.bullets).hide();
+              $(swiper.nextButton).hide();
+              $(swiper.prevButton).hide();
+              if (Page.isSp()){
+                $(swiper.bullets).show();
+                $(swiper.nextButton).show();
+                $(swiper.prevButton).show();
+              }
+            }
+          }
+        });
+
+      },
+      handleResize: function(){
+        if (!$el.length) {
+          return false;
+        }
+        instance.destroy(true, true);
+        underKvBanners.init();
+      }
+    };
+  }());
+
+  var eventBanners = (function(){
+
+    var instance = null;
+    var el =  '.js-eventBanners';
+    var $el = $(el);
+    var slideLength = $(".swiper-slide", el).length;
+    var hasOneSlide = slideLength === 1;
+
+    return {
+      init: function(){
+        if (!$el.length) {
+          return false;
+        }
+
+        instance = new Swiper(el, {
+          autoplay: false,
+          speed: 800,
+          pagination: '.swiper-pagination',
+          paginationClickable: true,
+          nextButton: '.js-event-banners-button-next',
+          prevButton: '.js-event-banners-button-prev',
+          simulateTouch: true, // true指定でスワイプ機能ON,
+          slidesPerView: 1,
+          onInit: function(swiper) {
+            if(hasOneSlide) {
+              $(swiper.bullets).hide();
+              $(swiper.nextButton).hide();
+              $(swiper.prevButton).hide();
+            }
+          }
+        });
+
+      },
+      handleResize: function(){
+        if (!$el.length) {
+          return false;
+        }
+        instance.destroy(true, true);
+        eventBanners.init();
+      }
+    };
+  }());
+
+  var topPageKVAnimationSlide = (function(){
+
+    var instance = null;
+    var el =  '.js-topKVSlide';
+    var $el = $(el);
+
+    return {
+      init: function(){
+        if (!$el.length) {
+          return false;
+        }
+
+        instance = new Swiper(el, {
+          autoplay: 8000,
+          effect: 'fade',
+          speed: 2000,
+          simulateTouch: false, // true指定でスワイプ機能ON,
+          slidesPerView: 1,
+        });
+
+      },
+      handleResize: function(){
+        if (!$el.length) {
+          return false;
+        }
+        instance.destroy(true, true);
+        topPageKVAnimationSlide.init();
+      }
+    };
+  }());
+
+  var topPageLoading = function(){
+    $(window).on('load',function(){
+      $('.kvLoadingWrap').addClass('fadeOut').delay(2000).queue(function(){
+        $(this).addClass('hidden');
+      });
+
+      // loadingが終わってからKVslide開始
+      topPageKVAnimationSlide.init();
+    });
+  }
+  topPageLoading();
+
+  var pageScrollToTop = function(){
+
+    var $pageTopBtn = $(".js-pageTop");
+    var $scrollTo = $(".js-pageWrap");
+    var $headerHeight = $(".header").outerHeight();
+
+    $pageTopBtn.on('click', function(){
+      $("html,body").animate({
+        scrollTop:$scrollTo.offset().top - $headerHeight
+      });
+    });
+  }
+  pageScrollToTop();
+
+  var topPageScrollToContent = function(){
+
+    var $scrollBtn = $(".js-scrollContentBtn");
+    var $scrollTo = $(".js-scrollContentTo");
+
+    $scrollBtn.on('click', function(){
+      var $headerHeight = $(".headerContainerWrap").outerHeight();
+      $("html,body").animate({
+        scrollTop:$scrollTo.offset().top - $headerHeight
+      });
+    });
+  }
+  topPageScrollToContent();
+
+  var filterContentToggle = function(){
+
+    var $filterToggleBtn = $('.js-filterToggleBtn');
+    var $filterToggleContent = $('.js-filterContent');
+
+    $filterToggleBtn.on('click', function(){
+      $(this).toggleClass('isActive');
+      $filterToggleContent.toggleClass('isOpen');
+      return false
+    });
+
+    var $filterItem = $('.js-filterItem');
+    $filterItem.on('click', function(){
+      var $thisCheckbox = $(this).find('input');
+      if($thisCheckbox.prop('checked')){
+        $(this).addClass('isSelected');
+      } else{
+        $(this).removeClass('isSelected');
+      }
+    });
+  }
+  filterContentToggle();
+
+  var adjustPageWrapMinHeight = function(){
+    //ページコンテンツの高さがwindowの高さに満たない時に、コンテンツの高さを調整
+    var windowHeight = $(window).outerHeight();
+    var $pageWrap = $(".js-pageWrap");
+
+    $pageWrap.css({
+      minHeight: 0
+    });
+
+    var headerHeight;
+    if (!Page.isSp() || $(".eventPageWrap").length) {
+      headerHeight = $(".js-header").outerHeight() + $(".js-breadcrumb").outerHeight(true);
+    } else {
+      headerHeight = $(".js-header-main").outerHeight() - $(".js-header").outerHeight() + $(".js-breadcrumb").outerHeight(true);
+    }
+
+    var pageWrapHeight = $pageWrap.outerHeight();
+    var footerHeight = $(".footer").outerHeight();
+    var bodyHeight = pageWrapHeight + footerHeight;
+    var contentMargin = $(".js-pageWrap > .pageMainSubContainer").css("margin-top") || 0;
+
+    if(windowHeight >= bodyHeight){
+      var diffHeight = windowHeight - bodyHeight;
+      $pageWrap.css({
+        minHeight: pageWrapHeight + diffHeight - headerHeight - parseInt(contentMargin)
+      });
+    }
+  }
+  adjustPageWrapMinHeight();
+
+  var videoControl = function(){
+    var $playBtn = $(".playVideoBtn");
+    var $closeBtn = $(".js-closeVideo");
+    function videoControl(action, target){
+      target.postMessage('{"event":"command","func":"'+action+'","args":""}', '*');
+    }
+    $closeBtn.on("click", function(){
+      var $videoArea = $(".js-recommendVideo");
+      var $thisVideo = $(this).closest($videoArea);
+      var videoNumber = $videoArea.index($thisVideo);
+      var $playerWindow = $('.js-videoPlayer')[videoNumber].contentWindow;
+
+      videoControl("stopVideo", $playerWindow);
+      $(this).closest($videoArea).remove();
+
+      Cookies.set('top_video', $videoArea.data('id'));
+    });
+    $playBtn.on("click", function(){
+      Cookies.remove('top_video');
+    });
+  }
+  videoControl();
+
+  // SPでPLAY VIDEOをタップした時にYouTubeが半分見切れてしまうため、ポジションを調整
+  $('.js-videoPlayer').on('load', function(){
+    $("html,body").animate({
+      scrollTop:$("body").offset().top
+    },0);
+  });
+
+  var error404RandomImages = function(){
+    var images = [
+        'bgd_404_01.jpg',
+        'bgd_404_02.jpg',
+        'bgd_404_03.jpg',
+        'bgd_404_04.jpg',
+        'bgd_404_05.jpg',
+        'bgd_404_06.jpg'
+    ]
+    var randImg = images[Math.floor(Math.random() * images.length)];
+    var imagePath = '/img/error/'
+    $('.randomImages').attr('src', imagePath + randImg);
+  }
+  if ($('.randomImages').length) {
+    error404RandomImages();
+  }
+
+  // ブログパーツのjs
+  var partsAnchorMenu = function(){
+    $(".js-anchorLinks a").click(function(){
+      var target = $(this.hash);
+      var headerHeight = $(".js-header-main").height();
+      var subHeaderHeight = $(".js-header-sub").height();
+      if (!target.length) {
+        return false;
+      }
+
+      if( target.offset().top < subHeaderHeight ){
+        headerHeight = 0;
+      }
+
+
+      var targetPos = target.offset().top;
+      $('html,body').animate({scrollTop: targetPos - headerHeight});
+    });
+  }
+  partsAnchorMenu();
+
+  //------- イベントバインド -------//
+  $(window).on('scroll', function(){
+    PageTop.handleScroll();
+    MainMenu.handleScroll();
+    adjustPageWrapMinHeight();
+  });
+  $(window).on('resize', function(){
+    HeaderNav.refreshPosition();
+
+    topPageKVAnimationSlide.handleResize();
+    underKvBanners.handleResize();
+    eventBanners.handleResize();
+    PageTop.handleScroll();
+    MainMenu.handleScroll();
+    adjustPageWrapMinHeight();
+
+  });
+
+  $(".js-headerNav a").on({
+      mouseenter: HeaderNav.handleMouseEnter,
+      mouseleave: HeaderNav.handleMouseLeave
+  });
+  $(".js-spHeaderNav")
+      .on('show.bs.collapse', function(){
+        HeaderNav.toggleNav(true);
+        Page.saveScrollPosition();
+      })
+      .on('shown.bs.collapse', function(e){
+        if ( $(e.target).hasClass("js-spHeaderNav") ){
+          HeaderNav.toggleBtn(false);
+        }
+        HeaderNav.refreshPosition();
+      })
+      .on('hide.bs.collapse', function(e){
+
+        HeaderNav.toggleNav(false);
+
+        if ( $(e.target).hasClass("js-spHeaderNav") ){
+
+          HeaderNav.toggleBtn(true);
+
+          // グローバルナビ閉じたらnestされているメニューもすべて閉じる
+          $(e.target).find("ul").collapse('hide');
+          Page.setMinHeight();
+        }
+      })
+      .on('hidden.bs.collapse', function(){
+        Page.restoreScrollPosition();
+      });
+  //---------------------------//
+
+  $(window).scroll();
+  BlogpartsSlider.init();
+  BlogParts.resizeTitleHeight();
+
+  if (Page.isSp()) {
+    HeaderNav.refreshPosition();
+  }
+
+  underKvBanners.init();
+  eventBanners.init();
+
+});

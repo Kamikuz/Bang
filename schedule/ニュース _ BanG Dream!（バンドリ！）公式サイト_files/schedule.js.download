@@ -1,0 +1,200 @@
+$(function (){
+    
+    starLoading();
+    function starLoading(){
+        if($('.calendarItem.isSp').css('display') === 'none') {
+            $('.kvLoadingWrapper').css({
+                'height': $('.calendarBody').height(),
+                'width': $('.calendarBody').width(),
+                'visibility': 'visible'
+            });
+        }
+    }
+
+    const fillPlanHeight = 33;
+    const maximumFillSpan = 30;
+    const calendarCellMinHeight = parseInt($('.calendarCell').css('min-height'), 10);
+    var storeScheduleHeight;
+    var storeHeight = [];
+    var map;
+
+    function initiateSchedulling() {
+        var compareScheduleHeightData = compareScheduleHeight();
+        if (compareScheduleHeightData) {
+            starLoading();
+            $('.kvLoadingWrapper').show();
+            storeHeight = [];
+
+            scheduleCalendarData.map(function(scheduleRowData, scheduleRowDataCount){
+                map = {};
+                storeScheduleHeight = {};
+                var rowBody = $('#row' + scheduleRowDataCount);
+                rowBody.empty();
+
+                scheduleRowData.map(function(scheduleData){
+                    sortingSchedule(scheduleData, rowBody, scheduleRowDataCount);
+                });
+
+                calculateCalendarRowHeight(rowBody);
+                storeHeight.push(storeScheduleHeight);
+            });
+            $('.kvLoadingWrapper').fadeOut(1500);
+        }
+    }
+
+    function compareScheduleHeight () {
+        var statusData = false;
+        var countLoop = 0;
+
+        if (storeHeight.length !== 0) {
+            $('.calendarBody').children().each(function() {
+                if (!($(this).attr('class') === 'kvLoadingWrapper')) {
+                    $(this).children().last().children().each(function() {
+                        var findingHeight = storeHeight[countLoop][$(this).attr('id')];
+
+                        $(this).children().removeAttr('style');
+                        var tempHeight = parseInt($(this).children().height());
+                        $(this).children().css('height', findingHeight);
+
+                        var tempFillPlan = Math.ceil(tempHeight/fillPlanHeight);
+                        var findidngFillPlan = Math.ceil(findingHeight/fillPlanHeight);
+
+                        if (!(findidngFillPlan == tempFillPlan)) {
+                            statusData = true;
+                        }
+                    });
+                    countLoop++;
+                }
+            });
+        } else {
+            statusData = true;
+        }
+
+        return statusData;
+    }
+
+    function sortingSchedule (scheduleData, rowBody, scheduleRowDataCount) {
+        var selectedFillPlan = checkColliding(scheduleData, 0);
+
+        var elementsChild = document.createElement('a');
+        elementsChild.className = 'calendarItem ' + scheduleData['type'];
+        elementsChild.href = scheduleData['link'];
+        elementsChild.textContent = scheduleData['text'];
+        if (scheduleData['target'] === '_blank') {
+            elementsChild.setAttribute('target', scheduleData['target']);
+        }
+
+        var elements = document.createElement('div');
+        elements.className = 'calendarBeltItem calendarCellContent';
+        elements.setAttribute('id', 'schedule' + scheduleData['id']);
+        elements.setAttribute('fill-plan', selectedFillPlan);
+        elements.setAttribute('start-span', scheduleData['start-span']);
+        elements.setAttribute('date-span', scheduleData['date-span']);
+        elements.setAttribute('fill-plan', selectedFillPlan);
+        elements.setAttribute('fill-plan', selectedFillPlan);
+        elements.setAttribute('style', 'position: absolute');
+        elements.appendChild(elementsChild);
+
+        rowBody.append(elements);
+
+        var selectedElement = $('#row' + scheduleRowDataCount + ' #schedule' + scheduleData['id']);
+        var scheduleHeight = selectedElement.height();
+        var expectedFillPlan = Math.ceil(scheduleHeight/fillPlanHeight);
+
+        scheduleData['row'] = expectedFillPlan;
+
+        if (expectedFillPlan > 1) {
+            var calculatedFillPlan = checkColliding(scheduleData, expectedFillPlan);
+            if (calculatedFillPlan !== selectedFillPlan) {
+                selectedElement.attr('fill-plan', calculatedFillPlan);
+                selectedFillPlan = calculatedFillPlan;
+            }
+        }
+
+        scheduleData['fill-plan'] = selectedFillPlan;
+
+        schedulePosition(scheduleData, scheduleData['id']);
+
+        var calculatedHeight = (expectedFillPlan * fillPlanHeight) - 5;
+        selectedElement.children().css('height', calculatedHeight);
+
+        storeScheduleHeight['schedule' + scheduleData['id']] = calculatedHeight;
+    }
+
+    function checkColliding(data, expectedFillPlan) {
+        var fillPlan = 0;
+
+        for (var countStartSpan = 0; countStartSpan < maximumFillSpan; countStartSpan++) {
+            var selectedStartSpan = data['start-span'];
+            var gotCollide = false;
+
+            for (var countDateSpan = 0; countDateSpan < data['date-span']; countDateSpan++) {
+                for (var countFillPlan = 0; countFillPlan <= expectedFillPlan; countFillPlan++) {
+                    if (map[(countStartSpan + countFillPlan) + '-' + selectedStartSpan] === undefined) {
+                    } else {
+                        gotCollide = true;
+                    }
+                }
+                selectedStartSpan++;
+            }
+
+            if (gotCollide === false) {
+                fillPlan = countStartSpan;
+                break;
+            }
+        }
+        return fillPlan;
+    }
+
+    function schedulePosition(data, scheduleId) {
+        var xAxis = data['fill-plan'];
+
+        for(var count =  0; count < data['row']; count++){
+            var yAxis = data['start-span'];
+
+            for(var countDateSpan = 0; countDateSpan < data['date-span']; countDateSpan++){
+                map[xAxis + '-' + yAxis] = scheduleId;
+                yAxis++;
+            }
+            xAxis++;
+        }
+    }
+
+    function calculateCalendarRowHeight(rowBody) {
+        var cellDateHeight = parseInt($('.calendarCellDate').outerHeight()) + 10;
+        var checkIsSP = $('.calendarItem.isSp').css('display');
+
+        if (checkIsSP === 'none') {
+            var highestRow = 0;
+
+            for (var key in map) {
+                var res = key.split('-');
+                var compareRowHeight = parseInt(res[0]);
+                if (highestRow < compareRowHeight) {
+                    highestRow = compareRowHeight;
+                }
+            }
+
+            var calendarHeight = ((parseInt(highestRow) + 1) * fillPlanHeight) + cellDateHeight;
+            if (calendarHeight > calendarCellMinHeight) {
+                rowBody.parent().height(calendarHeight);
+            }
+
+        } else {
+            rowBody.parent().removeAttr('style');
+        }
+    }
+
+    initiateSchedulling();
+    window.onresize = function() {
+        initiateSchedulling();
+        var checkIsSP = $('.calendarItem.isSp').css('display');
+        if (checkIsSP == 'none') {
+            initiateSchedulling();
+        } else {
+            $('.calendarBody').children().each(function(){
+                $(this).removeAttr('style');
+            });
+        }
+    };
+});

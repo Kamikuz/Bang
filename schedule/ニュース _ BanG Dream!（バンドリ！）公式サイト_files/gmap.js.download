@@ -1,0 +1,89 @@
+var GMAP = (function(){
+
+  var codeAddressToLatLng = function(address) {
+
+    return new Promise(function(resolve, reject){
+      var geocoder = new google.maps.Geocoder();
+      geocoder.geocode({
+        'address': address,
+        'region': 'jp'
+      }, function(results, status) {
+        if (status == google.maps.GeocoderStatus.OK ) {
+          resolve( new google.maps.LatLng(results[0].geometry.location.lat(), results[0].geometry.location.lng()) );
+        } else {
+          resolve( new google.maps.LatLng(35.6974355, 139.6815113) );
+        }
+      });
+    });
+  };
+  var applyStyles = function(map){
+
+    var mapStyle = [
+      {
+        "stylers": [
+          {
+            "hue": "#73cfe6"
+          },
+          {
+            "saturation": -65
+          }
+        ],
+        "elementType": "all",
+        "featureType": "all"
+      }
+    ];
+
+    var styleType = new google.maps.StyledMapType(mapStyle);
+    map.mapTypes.set('bcr', styleType);
+    map.setMapTypeId('bcr');
+  };
+  var pinMarker = function(map, latlng){
+
+    var markerOptions = {
+      position: latlng,
+      map: map
+    };
+   new google.maps.Marker(markerOptions);
+  };
+
+  return {
+    initialize: function(){
+      var self = this;
+      $(".js-gmap-address").each(function(){
+        self.render($(this));
+      });
+    },
+    render: function( $address ) {
+      var $field = $address.closest(".js-gmap-field");
+      codeAddressToLatLng($address.text())
+          .then(function(latlng){
+            var mapOptions = {
+              center: latlng,
+              zoom: 16,
+              mapTypeId: google.maps.MapTypeId.ROADMAP,
+              mapTypeControlOptions: {
+                mapTypeIds: [google.maps.MapTypeId.ROADMAP, 'simple']
+              },
+              zoomControl: false,
+              streetViewControl: false,
+              mapTypeControl: false
+            };
+
+            var map = new google.maps.Map( $(".js-gmap-canvas", $field).get(0), mapOptions);
+            applyStyles(map);
+            pinMarker(map, latlng);
+          });
+
+      this.updateLinkHref($field, $address.text());
+    },
+    updateLinkHref: function( $field, enteredAddress ) {
+      var href = "http://maps.google.co.jp/maps?q=" +  encodeURI(enteredAddress);
+      $field.find(".js-gmap-open")
+          .attr("href", href )
+          .attr("data-mce-href", href); // リンク挿入のdialogで使われるので必要
+    }
+  }
+
+}());
+
+GMAP.initialize();
